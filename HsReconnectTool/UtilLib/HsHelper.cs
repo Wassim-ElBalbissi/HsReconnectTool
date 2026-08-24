@@ -13,6 +13,7 @@ namespace UtilLib
 
         Firewall firewall;
         bool isForceDisconnected = false;
+        volatile bool disconnectInProgress = false;
         Random rnd = new Random();
 
         public static HsHelper Instance
@@ -208,6 +209,15 @@ namespace UtilLib
                 return;
             }
 
+            // Ignore repeated clicks while a disconnect is already running, so overlapping
+            // blocks don't toggle each other off early.
+            if (disconnectInProgress)
+            {
+                Logger.Log("A disconnect is already in progress - ignoring this click");
+                return;
+            }
+            disconnectInProgress = true;
+
             if (firewall != null)
             {
                 Logger.Log("Using firewall disconnect method");
@@ -234,6 +244,10 @@ namespace UtilLib
                     String.Format("Failed to close the connection.\r\n\r\n{0}\r\n\r\nDetails were written to:\r\n{1}",
                         ex.Message, Logger.FilePath),
                     "HsReconnectTool", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                disconnectInProgress = false;
             }
         }
     }
