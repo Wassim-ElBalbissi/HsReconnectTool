@@ -85,13 +85,24 @@ namespace UtilLib
                 Logger.Log("Firewall block ON for {0} ms", DisconnectTimeoutMs);
                 firewall.EnableRule();
 
-                // A firewall block alone only stalls the TCP connections (they retransmit
-                // and recover when the block lifts). Forcibly tear them down so the client
-                // actually drops and shows "reconnecting"; the block then prevents it from
-                // reconnecting until the window passes.
-                CloseExistingTcpConnections();
+                // Hold the block, and once per second also try to tear down the game's TCP
+                // connections and log how many remote connections remain. The per-second count
+                // shows whether the block is actually cutting traffic (count drops to 0) or the
+                // connection is surviving (count stays > 0).
+                int elapsed = 0;
+                const int stepMs = 1000;
+                while (elapsed < DisconnectTimeoutMs)
+                {
+                    CloseExistingTcpConnections();
+                    HsState during = UpdateHsState();
+                    int remote4 = during.Connections.Count(Util.IsRemoteConnection);
+                    int remote6 = during.Connections6.Count(Util.IsRemoteConnection);
+                    Logger.Log("During block t={0}ms: remote connections IPv4={1}, IPv6={2}", elapsed, remote4, remote6);
 
-                System.Threading.Thread.Sleep(DisconnectTimeoutMs);
+                    System.Threading.Thread.Sleep(stepMs);
+                    elapsed += stepMs;
+                }
+
                 firewall.DisableRule();
                 Logger.Log("Firewall block OFF");
             }

@@ -1,31 +1,34 @@
-﻿using System;
+using System;
 using System.Linq;
-using System.Windows.Forms;
 using WindowsFirewallHelper;
 
 namespace UtilLib
 {
     public class Firewall
     {
-        static readonly string RuleName = "HsReconnectTool";
+        static readonly string RuleNameOut = "HsReconnectTool";
+        static readonly string RuleNameIn = "HsReconnectTool (Inbound)";
         IFirewall inst;
-        IFirewallRule rule;
+        IFirewallRule ruleOut;
+        IFirewallRule ruleIn;
 
-        private Firewall(IFirewall _inst, IFirewallRule _rule)
+        private Firewall(IFirewall _inst, IFirewallRule _ruleOut, IFirewallRule _ruleIn)
         {
             inst = _inst;
-            rule = _rule;
-            Console.WriteLine("Firewall instance has been created");
+            ruleOut = _ruleOut;
+            ruleIn = _ruleIn;
         }
         public void EnableRule()
         {
-            Console.WriteLine("Turning firewall rule On");
-            rule.IsEnable = true;
+            Logger.Log("Turning firewall block ON");
+            if (ruleOut != null) ruleOut.IsEnable = true;
+            if (ruleIn != null) ruleIn.IsEnable = true;
         }
         public void DisableRule()
         {
-            Console.WriteLine("Turning firewall rule Off");
-            rule.IsEnable = false;
+            Logger.Log("Turning firewall block OFF");
+            if (ruleOut != null) ruleOut.IsEnable = false;
+            if (ruleIn != null) ruleIn.IsEnable = false;
         }
 
         public static Firewall TryCreate(string exePath)
@@ -45,28 +48,12 @@ namespace UtilLib
                     return null;
                 }
 
-                // Remove any pre-existing rule and recreate it, so it always has the correct
-                // program path, direction and (all) profiles. Older versions created the rule
-                // for the Public profile only; IFirewallRule.Profiles is read-only, so the only
-                // way to correct it is to recreate the rule.
-                var existing = inst.Rules.FirstOrDefault(r => r.Name == RuleName);
-                if (existing != null)
-                {
-                    try
-                    {
-                        inst.Rules.Remove(existing);
-                        Logger.Log("Removed pre-existing firewall rule to recreate it with correct settings");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.LogException("Firewall.RemoveExistingRule", ex);
-                    }
-                }
+                // Block both directions so the game both stops receiving server data (so it
+                // notices the disconnect quickly) and cannot re-establish during the window.
+                var ruleOut = RecreateRule(inst, RuleNameOut, FirewallDirection.Outbound, exePath);
+                var ruleIn = RecreateRule(inst, RuleNameIn, FirewallDirection.Inbound, exePath);
 
-                var rule = CreateRule(inst, exePath);
-                Logger.Log("Firewall rule created for {0} (all profiles, outbound block)", exePath);
-
-                return new Firewall(inst, rule);
+                return new Firewall(inst, ruleOut, ruleIn);
             }
             catch (Exception ex)
             {
@@ -74,18 +61,27 @@ namespace UtilLib
                 return null;
             }
         }
-        static IFirewallRule CreateRule(IFirewall inst, string path)
+
+        // Removes any existing rule with the given name and creates a fresh, disabled block
+        // rule for all profiles. IFirewallRule.Profiles is read-only, so recreating is the
+        // only way to guarantee the rule targets every profile and the correct program path.
+        static IFirewallRule RecreateRule(IFirewall inst, string name, FirewallDirection direction, string path)
         {
-            // Apply to every network profile so the block works regardless of whether the
-            // active network is classified Public, Private or Domain.
+            var existing = inst.Rules.FirstOrDefault(r => r.Name == name);
+            if (existing != null)
+            {
+                try { inst.Rules.Remove(existing); }
+                catch (Exception ex) { Logger.LogException("Firewall.RemoveExistingRule", ex); }
+            }
+
             var rule = inst.CreateApplicationRule(
                 FirewallProfiles.Domain | FirewallProfiles.Private | FirewallProfiles.Public,
-                RuleName, FirewallAction.Block, path);
-            rule.Direction = FirewallDirection.Outbound;
+                name, FirewallAction.Block, path);
+            rule.Direction = direction;
             rule.IsEnable = false;
             inst.Rules.Add(rule);
+            Logger.Log("Firewall rule '{0}' created ({1} block, all profiles) for {2}", name, direction, path);
             return rule;
         }
-
     }
 }
