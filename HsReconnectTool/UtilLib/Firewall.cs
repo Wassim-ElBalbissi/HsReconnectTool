@@ -45,16 +45,26 @@ namespace UtilLib
                     return null;
                 }
 
-                var rule = inst.Rules.FirstOrDefault(r => r.Name == RuleName);
-                if (rule == null)
+                // Remove any pre-existing rule and recreate it, so it always has the correct
+                // program path, direction and (all) profiles. Older versions created the rule
+                // for the Public profile only; IFirewallRule.Profiles is read-only, so the only
+                // way to correct it is to recreate the rule.
+                var existing = inst.Rules.FirstOrDefault(r => r.Name == RuleName);
+                if (existing != null)
                 {
-                    rule = CreateRule(inst, exePath);
-                    Logger.Log("Firewall rule has been created for {0}", exePath);
+                    try
+                    {
+                        inst.Rules.Remove(existing);
+                        Logger.Log("Removed pre-existing firewall rule to recreate it with correct settings");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogException("Firewall.RemoveExistingRule", ex);
+                    }
                 }
-                else
-                {
-                    Logger.Log("Firewall rule already exists");
-                }
+
+                var rule = CreateRule(inst, exePath);
+                Logger.Log("Firewall rule created for {0} (all profiles, outbound block)", exePath);
 
                 return new Firewall(inst, rule);
             }
@@ -66,7 +76,11 @@ namespace UtilLib
         }
         static IFirewallRule CreateRule(IFirewall inst, string path)
         {
-            var rule = inst.CreateApplicationRule(RuleName, FirewallAction.Block, path);
+            // Apply to every network profile so the block works regardless of whether the
+            // active network is classified Public, Private or Domain.
+            var rule = inst.CreateApplicationRule(
+                FirewallProfiles.Domain | FirewallProfiles.Private | FirewallProfiles.Public,
+                RuleName, FirewallAction.Block, path);
             rule.Direction = FirewallDirection.Outbound;
             rule.IsEnable = false;
             inst.Rules.Add(rule);

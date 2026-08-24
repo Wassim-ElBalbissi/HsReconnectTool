@@ -84,6 +84,13 @@ namespace UtilLib
 
                 Logger.Log("Firewall block ON for {0} ms", DisconnectTimeoutMs);
                 firewall.EnableRule();
+
+                // A firewall block alone only stalls the TCP connections (they retransmit
+                // and recover when the block lifts). Forcibly tear them down so the client
+                // actually drops and shows "reconnecting"; the block then prevents it from
+                // reconnecting until the window passes.
+                CloseExistingTcpConnections();
+
                 System.Threading.Thread.Sleep(DisconnectTimeoutMs);
                 firewall.DisableRule();
                 Logger.Log("Firewall block OFF");
@@ -92,6 +99,31 @@ namespace UtilLib
             {
                 isForceDisconnected = false;
             }
+        }
+        int CloseExistingTcpConnections()
+        {
+            HsState state = UpdateHsState();
+            int closed = 0, failed = 0;
+            foreach (var c in state.Connections)
+            {
+                if (!Util.IsRemoteConnection(c))
+                    continue;
+
+                String error = iphlpapi.CloseRemoteIP(c.ToTcpRow());
+                if (error == null)
+                {
+                    closed++;
+                    Logger.Log("Closed TCP connection {0}", c);
+                }
+                else
+                {
+                    failed++;
+                    Logger.Log("SetTcpEntry failed for {0}: {1}", c, error);
+                }
+            }
+            int remote6 = state.Connections6.Count(Util.IsRemoteConnection);
+            Logger.Log("TCP close summary: closed={0}, failed={1}, IPv6-remote(not closable)={2}", closed, failed, remote6);
+            return closed;
         }
         void DisconnectViaTcpMessage()
         {
