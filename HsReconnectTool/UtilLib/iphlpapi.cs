@@ -136,6 +136,57 @@ namespace UtilLib
             public MIB_TCPROW_OWNER_PID[] table;
         }
 
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MIB_TCP6ROW_OWNER_PID
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
+            public byte[] ucLocalAddr;
+            public uint dwLocalScopeId;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
+            public byte[] ucLocalPort;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
+            public byte[] ucRemoteAddr;
+            public uint dwRemoteScopeId;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
+            public byte[] ucRemotePort;
+            public uint dwState;
+            public uint dwOwningPid;
+
+            public uint ProcessId
+            {
+                get { return dwOwningPid; }
+            }
+
+            public IPAddress LocalAddress
+            {
+                get { return new IPAddress(ucLocalAddr); }
+            }
+
+            public IPAddress RemoteAddress
+            {
+                get { return new IPAddress(ucRemoteAddr); }
+            }
+
+            public MIB_TCP_STATE State
+            {
+                get { return (MIB_TCP_STATE)dwState; }
+            }
+
+            public override String ToString()
+            {
+                return String.Format("PID {0}, State: {1}, [{2}] <-> [{3}] (IPv6)",
+                    dwOwningPid, dwState, LocalAddress, RemoteAddress);
+            }
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MIB_TCP6TABLE_OWNER_PID
+        {
+            public uint dwNumEntries;
+            [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.Struct, SizeConst = 1)]
+            public MIB_TCP6ROW_OWNER_PID[] table;
+        }
+
 
 
         [DllImport("iphlpapi.dll", SetLastError = true)]
@@ -144,6 +195,10 @@ namespace UtilLib
         public static List<MIB_TCPROW_OWNER_PID> GetAllTCPConnections()
         {
             return GetTCPConnections<MIB_TCPROW_OWNER_PID, MIB_TCPTABLE_OWNER_PID>(AF_INET);
+        }
+        public static List<MIB_TCP6ROW_OWNER_PID> GetAllTCP6Connections()
+        {
+            return GetTCPConnections<MIB_TCP6ROW_OWNER_PID, MIB_TCP6TABLE_OWNER_PID>(AF_INET6);
         }
         private static List<IPR> GetTCPConnections<IPR, IPT>(int ipVersion)//IPR = Row Type, IPT = Table Type
         {

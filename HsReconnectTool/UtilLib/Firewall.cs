@@ -30,31 +30,39 @@ namespace UtilLib
 
         public static Firewall TryCreate(string exePath)
         {
-            if (!FirewallManager.IsServiceRunning)
+            try
             {
-                MessageBox.Show(String.Format("Windows firewall service is not running"));
+                if (!FirewallManager.IsServiceRunning)
+                {
+                    Logger.Log("Windows Firewall service is not running - firewall disconnect unavailable");
+                    return null;
+                }
+
+                IFirewall inst;
+                if (!FirewallManager.TryGetInstance(out inst))
+                {
+                    Logger.Log("Could not get a Windows Firewall instance - firewall disconnect unavailable");
+                    return null;
+                }
+
+                var rule = inst.Rules.FirstOrDefault(r => r.Name == RuleName);
+                if (rule == null)
+                {
+                    rule = CreateRule(inst, exePath);
+                    Logger.Log("Firewall rule has been created for {0}", exePath);
+                }
+                else
+                {
+                    Logger.Log("Firewall rule already exists");
+                }
+
+                return new Firewall(inst, rule);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogException("Firewall.TryCreate", ex);
                 return null;
             }
-
-            IFirewall inst;
-            if (!FirewallManager.TryGetInstance(out inst))
-            {
-                MessageBox.Show(String.Format("Cannot get windows firewall service instance"));
-                return null;
-            }
-
-            var rule = inst.Rules.FirstOrDefault(r => r.Name == RuleName);
-            if (rule == null)
-            {
-                rule = CreateRule(inst, exePath);
-                Console.WriteLine("Firewall rule has been created: {0}", rule);
-            }
-            else
-            {
-                Console.WriteLine("Firewall rule already exists: {0}", rule);
-            }
-
-            return new Firewall(inst, rule);
         }
         static IFirewallRule CreateRule(IFirewall inst, string path)
         {
