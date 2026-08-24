@@ -10,12 +10,7 @@
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>icon.ico</ApplicationIcon>
-    <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
   </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="System.Resources.Extensions" Version="8.0.0" />
-  </ItemGroup>
 
   <ItemGroup>
     <Reference Include="System" />

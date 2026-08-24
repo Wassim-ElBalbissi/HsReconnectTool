@@ -28,7 +28,6 @@
         /// </summary>
         private void InitializeComponent()
         {
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainWindow));
             this.hs_exe_label = new System.Windows.Forms.Label();
             this.hs_exe_status_label = new System.Windows.Forms.Label();
             this.update_button = new System.Windows.Forms.Button();
@@ -160,7 +159,6 @@
             this.Controls.Add(this.hs_exe_status_label);
             this.Controls.Add(this.hs_exe_label);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
-            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MaximizeBox = false;
             this.MinimumSize = new System.Drawing.Size(790, 480);
             this.Name = "MainWindow";

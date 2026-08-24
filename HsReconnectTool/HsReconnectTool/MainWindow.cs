@@ -12,6 +12,7 @@ namespace HsReconnectTool
         public MainWindow()
         {
             InitializeComponent();
+            TrySetWindowIcon();
             floatReconnectButton = new FloatReconnectButton();
             floatReconnectButton.Visible = float_button_checkBox.Checked;
             this.FormClosing += (s_, e_) => SettingsFileProxy.Default.FloatingReconnectButtonPosition = floatReconnectButton.Location;
@@ -21,6 +22,21 @@ namespace HsReconnectTool
         private void MainWindow_Load(object sender, EventArgs e)
         {
             UpdateHsInfo();
+        }
+
+        // Use the executable's own icon for the title bar instead of embedding a
+        // binary icon in the .resx (which would require System.Resources.Extensions
+        // and its fragile dependency chain at runtime).
+        private void TrySetWindowIcon()
+        {
+            try
+            {
+                this.Icon = Icon.ExtractAssociatedIcon(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            }
+            catch
+            {
+                // Non-fatal: fall back to the default window icon.
+            }
         }
 
         private void UpdateHsInfo()
